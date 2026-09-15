@@ -1,0 +1,21 @@
+# The layer every runtime image builds on; each adds its venv under /opt/venv/<runtime>.
+
+FROM nvidia/cuda:12.2.2-base-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC LANG=C.UTF-8
+SHELL ["/bin/bash", "-c"]
+
+# build tools: some openpi dependencies compile from source; libgl1/libglib2.0-0: cv2 needs them.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl git git-lfs \
+        build-essential clang cmake \
+        python3-pip python3-dev libffi-dev \
+        libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir uv==0.5.6
+ENV UV_NO_CACHE=1
+
+# The entrypoint and runner sources live in the runtime images; the base alone is not runnable.
+ENV PYTHONPATH=/opt/umi_arena \
+    UMI_ARENA_PORT=8000

@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "name": "Cup and smartphone open-task replay",
+  "dataset_repo": "airoa-org/yubi-corl2026-umi-arena",
+  "dataset_revision": "27fc30ae498d43aa6610918c6c77d7cec8267781",
+  "total_open_tasks": 5,
+  "selection": "5 recordings per task drawn with seed 'practice', complete and successful, with both observation and action grippers >= -0.1 rad in every episode of the recording.",
+  "tasks": [
+    {
+      "id": 1,
+      "name": "Pick-place cup",
+      "dataset_task": "Place the cup on the plate, then put it back to its original position",
+      "steps": [
+        "Pick up the cup with your right hand and set it on the plate",
+        "Pick up the cup with your left hand and return the cup to its original position"
+      ],
+      "recordings": [
+        {
+          "uuid": "2e5a8779-9605-4139-b64e-ab00aeb99efe",
+          "episodes": [
+            61164,
+            61165
+          ]
+        },
+        {
+          "uuid": "6822ac1f-7f52-4310-8125-e7eb00f08bf8",
+          "episodes": [
+            136238,
+            136239
+          ]
+        },
+        {
+          "uuid": "afff782e-9339-4848-957e-ac92083704a8",
+          "episodes": [
+            231149,
+            231150
+          ]
+        },
+        {
+          "uuid": "c5f59021-416a-4da4-b057-7f3d1dc35ab5",
+          "episodes": [
+            259632,
+            259633
+          ]
+        },
+        {
+          "uuid": "c7e89aad-fb31-4f14-b7eb-125f283c5afa",
+          "episodes": [
+            262232,
+            262233
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Pack smartphone into box",
+      "dataset_task": "Pack Smartphone into Box",
+      "steps": [
+        "Pick up and insert the divider into the box with the right gripper",
+        "Stand the smartphone upright with the left gripper",
+        "Pick up and lift the smartphone with the right gripper",
+        "Place the smartphone into the box with the right gripper",
+        "Close the lid with the right gripper",
+        "Open the lid with the right gripper",
+        "Take the smartphone out of the box with the right gripper",
+        "Remove the divider with the right gripper"
+      ],
+      "recordings": [
+        {
+          "uuid": "29ee66ba-7a07-40c4-ada9-75469b70eeea",
+          "episodes": [
+            55093,
+            55094,
+            55095,
+            55096,
+            55097,
+            55098,
+            55099,
+            55100
+          ]
+        },
+        {
+          "uuid": "6980c84a-aef1-4084-af07-33fec6f9ead0",
+          "episodes": [
+            138123,
+            138124,
+            138125,
+            138126,
+            138127,
+            138128,
+            138129,
+            138130
+          ]
+        },
+        {
+          "uuid": "d0aaf02f-dd4a-4d3d-bb00-a1dc712be169",
+          "episodes": [
+            273848,
+            273849,
+            273850,
+            273851,
+            273852,
+            273853,
+            273854,
+            273855
+          ]
+        },
+        {
+          "uuid": "e3557aef-748e-438f-826b-96cfa5352f8c",
+          "episodes": [
+            298598,
+            298599,
+            298600,
+            298601,
+            298602,
+            298603,
+            298604,
+            298605
+          ]
+        },
+        {
+          "uuid": "f3af265f-1e45-426d-aa07-00f29775c321",
+          "episodes": [
+            320452,
+            320453,
+            320454,
+            320455,
+            320456,
+            320457,
+            320458,
+            320459
+          ]
+        }
+      ]
+    }
+  ],
+  "uncovered_tasks": [
+    {
+      "id": 2,
+      "name": "Pens in and out of penholder"
+    },
+    {
+      "id": 3,
+      "name": "SPS YUBI"
+    },
+    {
+      "id": 4,
+      "name": "Insert cable into YUBI"
+    }
+  ],
+  "gripper_filter": {
+    "minimum_rad": -0.1,
+    "scope": "every episode in each recording, checked when the suite was written"
+  }
+}

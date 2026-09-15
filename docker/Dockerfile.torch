@@ -1,0 +1,31 @@
+# runtime: torch (PyTorch cu128 + lerobot 0.6: SmolVLA, GR00T, pi0/pi0.5 ports, ACT, Diffusion); built by docker/build.sh.
+
+ARG BASE
+FROM ${BASE}
+
+# openpi's pinned lerobot has no model code, so this venv gets lerobot 0.6; openpi-client is the protocol codec (--no-deps: it pins numpy<2).
+ARG OPENPI_REF
+ENV OPENPI_REF=${OPENPI_REF}
+ARG LEROBOT_VERSION=0.6.1
+# cu128 matches LeRobot's Linux default and supports the target Blackwell GPUs (sm_120).
+RUN GIT_LFS_SKIP_SMUDGE=1 bash -c '\
+       : "${OPENPI_REF:?pass --build-arg OPENPI_REF=<sha>}" \
+    && uv python install 3.12 \
+    && uv venv --python 3.12 /opt/venv/torch \
+    && VIRTUAL_ENV=/opt/venv/torch uv pip install \
+         --extra-index-url https://download.pytorch.org/whl/cu128 torch torchvision \
+    && VIRTUAL_ENV=/opt/venv/torch uv pip install "lerobot[groot,smolvla,pi]==${LEROBOT_VERSION}" \
+    && VIRTUAL_ENV=/opt/venv/torch uv pip install --no-deps \
+         "openpi-client @ git+https://github.com/Physical-Intelligence/openpi.git@${OPENPI_REF}#subdirectory=packages/openpi-client" \
+    && VIRTUAL_ENV=/opt/venv/torch uv pip install msgpack websockets dm-tree pytest'
+
+COPY umi_arena /opt/umi_arena/umi_arena
+COPY runner.py /opt/umi_arena/runner.py
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 8000
+ENTRYPOINT ["/entrypoint.sh"]
+
+RUN /opt/venv/torch/bin/python -c "import torch, lerobot, openpi_client.msgpack_numpy; from umi_arena.openpi_yubi import discover_asset_id; from lerobot.policies.factory import get_policy_class; get_policy_class('groot'); get_policy_class('smolvla'); print('torch venv ok, lerobot', lerobot.__version__, 'torch', torch.__version__)"
+
+ENV UMI_ARENA_RUNTIME=torch

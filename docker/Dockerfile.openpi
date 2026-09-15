@@ -1,0 +1,30 @@
+# runtime: openpi (JAX 0.5.3 + upstream openpi); built by docker/build.sh.
+
+ARG BASE
+FROM ${BASE}
+
+# GIT_LFS_SKIP_SMUDGE: uv clones openpi's pinned lerobot rev and git-lfs would fail smudging it.
+ARG OPENPI_REF
+ENV OPENPI_REF=${OPENPI_REF}
+COPY docker/openpi-overrides.txt /opt/openpi-overrides.txt
+RUN GIT_LFS_SKIP_SMUDGE=1 bash -c '\
+       : "${OPENPI_REF:?pass --build-arg OPENPI_REF=<sha>}" \
+    && uv python install 3.11 \
+    && git clone --filter=blob:none https://github.com/Physical-Intelligence/openpi.git /opt/src/openpi \
+    && git -C /opt/src/openpi checkout --quiet ${OPENPI_REF} \
+    && uv venv --python 3.11 /opt/venv/openpi \
+    && VIRTUAL_ENV=/opt/venv/openpi uv pip install --overrides /opt/openpi-overrides.txt \
+         -e /opt/src/openpi -e /opt/src/openpi/packages/openpi-client pytest'
+
+COPY umi_arena /opt/umi_arena/umi_arena
+COPY runner.py /opt/umi_arena/runner.py
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+EXPOSE 8000
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Fail the build, not a submission, if a later install walks the pin back.
+RUN /opt/venv/openpi/bin/python -c "import jax,sys; sys.exit('jax pin broken: '+jax.__version__) if jax.__version__ != '0.5.3' else None; import openpi.transforms, openpi.training.config, openpi.policies.policy_config; import umi_arena.yubi.transforms, umi_arena.yubi.config, openpi_client.msgpack_numpy, cv2, torch, lerobot; print('openpi venv ok, jax', jax.__version__)"
+
+ENV UMI_ARENA_RUNTIME=openpi \
+    XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
