@@ -17,7 +17,7 @@ msgpack, or the metadata handshake.
 ```
 
 The observation keys, the action layout and the limits are specified on the
-[Submission Format](../submission-format.html) page. This file covers the tooling.
+[Submission Format](https://umi-arena.airoa.io/submission-format.html) page. This file covers the tooling.
 
 ## Layout
 
@@ -42,9 +42,23 @@ Each adapter directory carries a `umi_arena.yaml` declaring `runtime: openpi` or
 `runtime: torch`, which selects the image it runs in; the entrypoint refuses a
 mismatch.
 
+## Get the tooling
+
+The evaluation tooling is published in this repository, with version 1.0.0
+runtime images on GitHub Container Registry. Clone the repository:
+
+```sh
+git clone https://github.com/airoa-org/umi-arena-evaluation.git
+cd umi-arena-evaluation
+```
+
+The checker and managed replay need Linux, Docker with the NVIDIA container
+toolkit, an NVIDIA GPU and `uv`. If the repository or images are inaccessible,
+contact [umi-arena@airoa.org](mailto:umi-arena@airoa.org).
+
 ## Prepare a submission folder
 
-Run the commands below from `evaluation-runner/`. Set `submission` to your saved
+Run the commands below from the cloned `umi-arena-evaluation/` directory. Set `submission` to your saved
 checkpoint directory. It must contain `policy.py`, the model weights and any
 configuration or normalization assets the model needs.
 
@@ -86,8 +100,9 @@ my-submission/
   If you already have a custom `policy.py`, keep it and check the contract below.
 - The runner mounts the folder read-only and passes its path to `Policy(checkpoint_dir)`.
   Keep datasets and generated reports outside this folder.
-- Use the matching `umi-arena-openpi:<round-tag>` or `umi-arena-torch:<round-tag>` image.
-  If it is not available locally, see [Building it](#building-it), then run [the checker](#the-checker).
+- Use `ghcr.io/airoa-org/umi-arena-openpi:1.0.0` for `runtime: openpi`, or
+  `ghcr.io/airoa-org/umi-arena-torch:1.0.0` for `runtime: torch`, then run [the checker](#the-checker).
+  [Building it](#building-it) covers local development images.
 
 ## The adapter contract
 
@@ -111,11 +126,21 @@ Two things that trip people up:
 ## The checker
 
 ```sh
-uv run check.py --submission ./my-submission --tag <round-tag>            # a local directory
-uv run check.py --hf team/model --revision <sha> --tag <round-tag>        # the pinned revision, as at intake
+# Select the image matching your submission's umi_arena.yaml.
+image=ghcr.io/airoa-org/umi-arena-openpi:1.0.0
+# For runtime: torch, use this instead:
+# image=ghcr.io/airoa-org/umi-arena-torch:1.0.0
+docker pull "$image"
+
+uv run check.py --submission "$submission" --image "$image"
+# Or check a pinned Hugging Face revision:
+uv run check.py --hf team/model --revision <sha> --image "$image"
 ```
 
-Needs Linux, Docker with the NVIDIA container toolkit, a GPU, and `uv`. The
+Needs Linux, Docker with the NVIDIA container toolkit, a GPU, and `uv`. Where the toolkit
+runs in CDI mode, docker serves `--runtime=nvidia` but refuses `--gpus`, so pass
+`--gpu-args=--runtime=nvidia` (with the `=`, which keeps argparse from reading the value as
+another flag). The
 verdict and every check go to `report.json`, the container's log next to it; exit
 0 when every check passed, 1 when one failed. The checker never imports the
 submission's code and does not judge the actions.
@@ -123,7 +148,9 @@ submission's code and does not judge the actions.
 The real robot sends only the left and right wrist images. A submission must
 run without `observation.image.center`, so the checker omits it.
 
-- `--tag` names the round's image tag; the default `dev` exists only on a build machine.
+- `--image` selects the full registry reference shown above. For local builds,
+  `--tag` selects `umi-arena-<runtime>:<tag>` from the runtime declaration.
+  Its default `dev` tag is a local-build name, not a public release reference.
 - `--env HF_TOKEN=<token>` forwards a Hugging Face token for a gated backbone.
   Nothing is forwarded into the container without a flag.
 - `--hf-cache <dir>` mounts the cache's `hub/` and `modules/` read-only with
@@ -142,10 +169,9 @@ Docker and GPU host the checker needs.
 
 ### Run the practice suite
 
-Prepare your submission and pass the checker first. The example below uses OpenPI;
-use `umi-arena-torch` for a Torch submission. Replace `MODEL_REVISION` with your
-checkpoint identifier and `ROUND_TAG` with the image tag you have installed.
-The timing and translation settings must match your checkpoint.
+Prepare your submission and pass the checker first. Reuse the `submission` and
+matching `image` variables from the setup above. Replace `MODEL_REVISION` with
+your checkpoint identifier. The timing and translation settings must match your checkpoint.
 
 ```sh
 revision=27fc30ae498d43aa6610918c6c77d7cec8267781
@@ -158,7 +184,7 @@ uv run replay.py --dataset replay-data/practice --dataset-revision "$revision" \
 
 uv run replay.py --dataset replay-data/practice --dataset-revision "$revision" \
   --suite suites/practice-cup-smartphone.json --submission "$submission" \
-  --checkpoint-id MODEL_REVISION --image umi-arena-openpi:ROUND_TAG --action-hz 30 \
+  --checkpoint-id MODEL_REVISION --image "$image" --action-hz 30 \
   --translation-frame body --pose-timing previous --output replay-results/model
 ```
 
@@ -185,7 +211,7 @@ revision=27fc30ae498d43aa6610918c6c77d7cec8267781
 
 uv run replay.py --dataset "$dataset" --dataset-revision "$revision" \
   --suite suites/practice-cup-smartphone.json --submission "$submission" \
-  --checkpoint-id MODEL_REVISION --image umi-arena-openpi:ROUND_TAG --action-hz 30 \
+  --checkpoint-id MODEL_REVISION --image "$image" --action-hz 30 \
   --translation-frame body --pose-timing previous --output replay-results/local-suite
 ```
 
@@ -266,20 +292,21 @@ recording if it cannot confirm that the previous policy container was removed.
 
 ## The images
 
-```
-umi-arena-base:<round-tag>    OS packages + uv
+| Runtime | Public release image | Environment |
+|---|---|---|
+| `openpi` | `ghcr.io/airoa-org/umi-arena-openpi:1.0.0` | `/opt/venv/openpi`: Python 3.11, JAX 0.5.3 + upstream openpi |
+| `torch` | `ghcr.io/airoa-org/umi-arena-torch:1.0.0` | `/opt/venv/torch`: Python 3.12, PyTorch (cu128) + LeRobot 0.6.1 [groot, smolvla, pi] |
 
-umi-arena-openpi:<round-tag>   FROM base   /opt/venv/openpi   Python 3.11, JAX 0.5.3 + upstream openpi
-umi-arena-torch:<round-tag>    FROM base   /opt/venv/torch    Python 3.12, torch (cu128) + lerobot 0.6 [groot,smolvla,pi]
-```
+These are the release references. The base image is a build
+stage with OS packages and `uv`; participants run a runtime image.
 
 Each runtime image contains `/opt/umi_arena/` with the runner and helpers,
 and `/entrypoint.sh` to select and validate the submission's runtime.
 
 ```sh
 docker run --gpus all --network host \
-  -v /path/to/submission:/submission:ro \
-  umi-arena-<runtime>:<round-tag>
+  -v "$submission:/submission:ro" \
+  "$image"
 ```
 
 A submission that declares the other runtime exits 2 with a message naming
@@ -296,11 +323,18 @@ family means adding its extra and re-tagging the image.
 
 ### Building it
 
+Run from the repository root. These commands create local development images:
+
 ```sh
-cd evaluation-runner
-docker/build.sh <round-tag>            # base, then openpi and torch
-docker/build.sh <round-tag> torch      # one runtime only
+docker/build.sh dev            # base, then openpi and torch
+# Or build only the Torch runtime:
+docker/build.sh dev torch
 ```
+
+The results are named `umi-arena-base:dev`, `umi-arena-openpi:dev` and/or
+`umi-arena-torch:dev`. Use `--tag dev` with the checker, or pass the complete
+local name with `--image`. Building locally does not publish or reproduce the
+released image digest.
 
 Set `OPENPI_REF=<sha>` in the environment to build against another upstream
 openpi commit.
@@ -317,8 +351,16 @@ The build works around three things:
 
 The openpi image runs an import check at build time that fails the build if the
 `jax==0.5.3` pin slips; a newer jax breaks orbax checkpoint loading. The
-environment is resolved at build time; a lock file published with each round's
-image tag is planned.
+environment is resolved at build time, so rebuilding can select different
+package versions. Use the released image when comparing against the evaluation
+environment. To inspect the installed packages, run the matching command:
+
+```sh
+docker run --rm --entrypoint uv ghcr.io/airoa-org/umi-arena-openpi:1.0.0 \
+  pip freeze --python /opt/venv/openpi/bin/python
+docker run --rm --entrypoint uv ghcr.io/airoa-org/umi-arena-torch:1.0.0 \
+  pip freeze --python /opt/venv/torch/bin/python
+```
 
 ## Recorded observations
 

@@ -30,6 +30,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -191,7 +192,7 @@ def preflight(args, report: Report) -> None:
         if r.returncode != 0:
             report.fail("image is available", r.stderr.strip().splitlines()[-1] if r.stderr else "pull failed")
     report.ok("image is available", args.image)
-    r = subprocess.run(["docker", "run", "--rm", "--gpus", "all", "--entrypoint", "nvidia-smi", args.image, "-L"],
+    r = subprocess.run(["docker", "run", "--rm", *args.gpu_args, "--entrypoint", "nvidia-smi", args.image, "-L"],
                        capture_output=True, text=True, timeout=120)
     lines = (r.stdout if r.returncode == 0 and r.stdout.strip() else r.stderr or r.stdout).strip().splitlines()
     if r.returncode != 0 or not lines:
@@ -206,7 +207,7 @@ def image_digest(image: str) -> str:
 
 
 def container_command(args, name: str, submission: Path) -> list[str]:
-    cmd = ["docker", "run", "-d", "--name", name, "--gpus", "all", "--network", "host",
+    cmd = ["docker", "run", "-d", "--name", name, *args.gpu_args, "--network", "host",
            "-e", f"UMI_ARENA_PORT={args.port}", "-v", f"{submission}:/submission:ro"]
     for e in args.env:
         cmd += ["-e", e]
@@ -419,6 +420,9 @@ def parse_args(argv=None):
     p.add_argument("--env", action="append", default=[], help="extra -e for the container, e.g. HF_TOKEN=<token> for your own gated model")
     p.add_argument("--volume", action="append", default=[], help="extra -v for the container, e.g. ~/hf:/hfhome")
     p.add_argument("--hf-cache", type=Path, help="pre-warmed HF_HOME: its hub/ and modules/ are mounted read-only with HF_HUB_OFFLINE=1, its login files are not (intake)")
+    p.add_argument("--gpu-args", default="--gpus all",
+                   help="docker flags that expose the GPU; a host whose toolkit runs in CDI mode "
+                        "needs --gpu-args=--runtime=nvidia (write it with = so argparse keeps the value)")
     p.add_argument("--keep", action="store_true", help="leave the container running after the run")
     p.add_argument("--report", type=Path, default=Path("report.json"))
     args = p.parse_args(argv)
@@ -426,6 +430,7 @@ def parse_args(argv=None):
         p.error("--calls must be at least 1")
     if args.hf_cache and not (args.hf_cache / "hub").is_dir():
         p.error(f"--hf-cache {args.hf_cache} has no hub/ directory; warm it first (HF_HOME=<dir> huggingface-cli download <backbone>)")
+    args.gpu_args = shlex.split(args.gpu_args)
     return args
 
 
